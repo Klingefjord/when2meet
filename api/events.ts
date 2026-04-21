@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { customAlphabet } from 'nanoid'
-import { dbPromise } from './_db'
+import { dbPromise } from './_db.js'
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 10)
 

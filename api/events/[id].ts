@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { dbPromise } from '../_db'
+import { dbPromise } from '../_db.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { id } = req.query as { id: string }
