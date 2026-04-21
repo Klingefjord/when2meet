@@ -52,6 +52,7 @@ export function Event({ eventId }: { eventId: string }) {
   const [hoverSlot, setHoverSlot] = useState<SlotIso | null>(null)
   const [copied, setCopied] = useState(false)
   const [pageStart, setPageStart] = useState(0)
+  const [paintMode, setPaintMode] = useState(false)
 
   const isMobile = useIsMobile()
   const viewerTz = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
@@ -311,15 +312,38 @@ export function Event({ eventId }: { eventId: string }) {
           <Frame
             title="YOUR.AVAILABILITY"
             right={
-              <div className="text-[11px] text-text-faint">
-                [{selected.size.toString().padStart(3, '0')}]
+              <div className="flex items-center gap-2">
+                {isMobile && committedName && (
+                  <button
+                    onClick={() => setPaintMode((v) => !v)}
+                    className={[
+                      'text-[10px] tracking-[0.15em] px-2 py-0.5 border transition-colors',
+                      paintMode
+                        ? 'border-[#ffb000] bg-[#ffb000] text-[#0a0806] [text-shadow:none]'
+                        : 'border-[#ffb000]/40 text-text-dim',
+                    ].join(' ')}
+                  >
+                    {paintMode ? '[ PAINT ON ]' : '[ PAINT ]'}
+                  </button>
+                )}
+                <div className="text-[11px] text-text-faint">
+                  [{selected.size.toString().padStart(3, '0')}]
+                </div>
               </div>
             }
           >
             <div className="p-2">
               <div className="text-[11px] text-text-dim mb-2 px-1">
                 {committedName ? (
-                  <>&gt; {committedName} · drag to mark free</>
+                  isMobile ? (
+                    paintMode ? (
+                      <>&gt; paint on · drag to paint range · tap toggles one</>
+                    ) : (
+                      <>&gt; tap slot to toggle · enable PAINT to drag ranges</>
+                    )
+                  ) : (
+                    <>&gt; {committedName} · drag to mark free</>
+                  )
                 ) : (
                   <>&gt; awaiting login…</>
                 )}
@@ -338,6 +362,7 @@ export function Event({ eventId }: { eventId: string }) {
                   columnWindow={columnWindow}
                   rowHeight={rowHeight}
                   labelWidth={labelWidth}
+                  touchPaint={!isMobile || paintMode}
                 />
               </div>
             </div>
@@ -375,6 +400,7 @@ export function Event({ eventId }: { eventId: string }) {
                   columnWindow={columnWindow}
                   rowHeight={rowHeight}
                   labelWidth={labelWidth}
+                  touchPaint={!isMobile}
                 />
               </div>
 

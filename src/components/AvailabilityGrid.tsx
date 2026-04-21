@@ -19,6 +19,10 @@ type Props = {
   rowHeight?: number
   // Label column width — defaults to 60px.
   labelWidth?: number
+  // When true, touch events paint rather than scroll. When false (default on
+  // mobile), touch gestures pass through so the page scrolls; only single
+  // taps toggle individual slots.
+  touchPaint?: boolean
 }
 
 export function AvailabilityGrid({
@@ -32,6 +36,7 @@ export function AvailabilityGrid({
   columnWindow,
   rowHeight = 22,
   labelWidth = 60,
+  touchPaint = true,
 }: Props) {
   const visibleColumns = useMemo(() => {
     if (!columnWindow) return grid.columns.map((c, i) => ({ col: c, absIdx: i }))
@@ -109,14 +114,49 @@ export function AvailabilityGrid({
     setDragOver(null)
   }
 
+  // For touch gestures without paint mode: track the start point; if the user
+  // lifts without moving more than a small threshold, treat it as a tap that
+  // toggles the single slot. If they move further, it's a scroll — bail.
+  const touchTap = useRef<{ iso: SlotIso; x: number; y: number; cancelled: boolean } | null>(null)
+
+  const toggleSingleSlot = (iso: SlotIso) => {
+    if (mode !== 'edit' || !selected || !onSelectedChange) return
+    const next = new Set(selected)
+    if (next.has(iso)) next.delete(iso)
+    else next.add(iso)
+    onSelectedChange(next)
+  }
+
   const onPointerDown = (e: React.PointerEvent, colIdx: number, rowIdx: number, iso: SlotIso) => {
     if (mode !== 'edit') return
+
+    // Mouse / stylus: always drag-paint.
+    // Touch with paint mode on: drag-paint.
+    // Touch with paint mode off: don't preventDefault — let the page scroll.
+    //   Record a potential tap; commit it on pointerup if barely moved.
+    const isTouch = e.pointerType === 'touch'
+    if (isTouch && !touchPaint) {
+      touchTap.current = { iso, x: e.clientX, y: e.clientY, cancelled: false }
+      return
+    }
+
     e.preventDefault()
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     beginDrag(colIdx, rowIdx, iso)
   }
 
   const onPointerMove = (e: React.PointerEvent) => {
+    // Cancel a pending touch-tap if the finger moved more than a few px —
+    // that means the user is trying to scroll, not tap.
+    if (touchTap.current && !touchTap.current.cancelled) {
+      const dx = e.clientX - touchTap.current.x
+      const dy = e.clientY - touchTap.current.y
+      if (dx * dx + dy * dy > 100) {
+        // ~10px threshold
+        touchTap.current.cancelled = true
+      }
+    }
+
     if (!dragMode.current) {
       if (onHoverSlot) {
         const c = cellAtPoint(e.clientX, e.clientY)
@@ -128,22 +168,41 @@ export function AvailabilityGrid({
     if (c) continueDrag(c.colIdx, c.rowIdx)
   }
 
+  // Complete a touch-tap if the finger lifted without scrolling.
+  const onPointerUp = () => {
+    if (touchTap.current && !touchTap.current.cancelled) {
+      toggleSingleSlot(touchTap.current.iso)
+    }
+    touchTap.current = null
+  }
+
   useEffect(() => {
-    const up = () => endDrag()
+    const up = () => {
+      onPointerUp()
+      endDrag()
+    }
     window.addEventListener('pointerup', up)
     window.addEventListener('pointercancel', up)
     return () => {
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', up)
     }
-  }, [])
+    // onPointerUp reads touchTap + selected via closure; fine since the
+    // effect runs on every render anyway due to no deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  })
 
   const gridCols = `${labelWidth}px repeat(${visibleColumns.length}, minmax(36px, 1fr))`
 
   return (
     <div
       ref={gridRef}
-      className="relative select-none no-select touch-none"
+      className={[
+        'relative select-none no-select',
+        // When paint mode is on, capture touch so drag paints (doesn't scroll).
+        // When off, touch pans the page; we still catch taps via pointer events.
+        touchPaint ? 'touch-none' : 'touch-pan-y',
+      ].join(' ')}
       onPointerMove={onPointerMove}
       onPointerLeave={() => onHoverSlot?.(null)}
     >
