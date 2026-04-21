@@ -248,7 +248,7 @@ export function Event({ eventId }: { eventId: string }) {
           transition={{ duration: 0.3, delay: 0.05 }}
         >
           <Frame
-            title="YOU.MATRIX"
+            title="YOUR.AVAILABILITY"
             right={
               <div className="text-[11px] text-text-faint">
                 [{selected.size.toString().padStart(3, '0')}] blocks
@@ -265,7 +265,7 @@ export function Event({ eventId }: { eventId: string }) {
               </div>
               <div
                 className={[
-                  'overflow-auto max-h-[65vh]',
+                  'overflow-auto max-h-[65vh] min-h-[340px]',
                   !committedName ? 'opacity-30 pointer-events-none' : '',
                 ].join(' ')}
               >
@@ -286,7 +286,7 @@ export function Event({ eventId }: { eventId: string }) {
           transition={{ duration: 0.3, delay: 0.1 }}
         >
           <Frame
-            title="GROUP.OVERLAY"
+            title="GROUP.AVAILABILITY"
             variant="green"
             right={<ResponderChips names={allNames} />}
           >
@@ -301,7 +301,7 @@ export function Event({ eventId }: { eventId: string }) {
                 )}
               </div>
 
-              <div className="overflow-auto max-h-[65vh]">
+              <div className="overflow-auto max-h-[65vh] min-h-[340px]">
                 <AvailabilityGrid
                   grid={grid}
                   mode="view"

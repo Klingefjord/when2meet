@@ -186,16 +186,13 @@ export function Landing({ onCreated }: { onCreated: (id: string) => void }) {
                       onMouseEnter={() => onCellEnter(d, disabled)}
                       className={[
                         'relative aspect-square text-sm transition-colors border-r border-b border-[#ffb000]/15 font-mono',
-                        disabled
-                          ? 'text-text-faint/40 cursor-not-allowed'
-                          : inMonth
-                            ? 'text-text'
-                            : 'text-text-faint',
                         isSelected
-                          ? 'bg-[#ffb000] text-[#0a0806] hover:bg-[#ffd166]'
+                          ? 'bg-[#ffb000] !text-[#0a0806] hover:bg-[#ffd166] [text-shadow:none]'
                           : disabled
-                            ? ''
-                            : 'hover:bg-[#ffb000]/10',
+                            ? 'text-text-faint/40 cursor-not-allowed'
+                            : inMonth
+                              ? 'text-text hover:bg-[#ffb000]/10'
+                              : 'text-text-faint hover:bg-[#ffb000]/10',
                       ].join(' ')}
                     >
                       {String(d.getDate()).padStart(2, '0')}
