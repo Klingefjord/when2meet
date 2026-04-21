@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AvailabilityGrid } from '../components/AvailabilityGrid'
+import { Frame } from '../components/Frame'
 import { api } from '../lib/api'
 import type { Event as EventType } from '../lib/types'
 import { buildEventSlots, projectToLocal } from '../lib/slots'
@@ -13,16 +14,14 @@ function lsKeySelected(eventId: string, name: string) {
 }
 
 function formatTz(tz: string): string {
-  // "America/New_York" -> "New York" ; also tack on GMT offset for clarity.
   const name = tz.split('/').pop()?.replace(/_/g, ' ') ?? tz
   try {
     const dtf = new Intl.DateTimeFormat('en-US', {
       timeZone: tz,
       timeZoneName: 'shortOffset',
     })
-    const parts = dtf.formatToParts(new Date())
-    const off = parts.find((p) => p.type === 'timeZoneName')?.value
-    return off ? `${name} · ${off}` : name
+    const off = dtf.formatToParts(new Date()).find((p) => p.type === 'timeZoneName')?.value
+    return off ? `${name} ${off}` : name
   } catch {
     return name
   }
@@ -77,7 +76,6 @@ export function Event({ eventId }: { eventId: string }) {
     }
   }
 
-  // Debounced save
   const saveTimer = useRef<number | null>(null)
   const firstSave = useRef(true)
   useEffect(() => {
@@ -112,8 +110,6 @@ export function Event({ eventId }: { eventId: string }) {
     }
   }, [selected, committedName, event, eventId])
 
-  // Absolute slots for this event (minted in creator's tz), then projected to
-  // viewer's local grid. This is what lets different viewers see their own tz.
   const grid = useMemo(() => {
     if (!event) return null
     const abs = buildEventSlots(event.dates, event.startHour, event.endHour, event.timezone)
@@ -154,52 +150,55 @@ export function Event({ eventId }: { eventId: string }) {
 
   if (loading)
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-text-dim animate-pulse">Loading…</div>
+      <div className="min-h-screen flex items-center justify-center font-mono text-text">
+        <span>LOADING<span className="blink">...</span></span>
       </div>
     )
   if (error || !event || !grid)
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-red-400">{error ?? 'Event not found'}</div>
+      <div className="min-h-screen flex items-center justify-center font-mono">
+        <div className="text-[#ff3b30]">ERR: {error ?? 'event not found'}</div>
       </div>
     )
 
-  const tzNote =
-    viewerTz === event.timezone
-      ? `Times shown in ${formatTz(viewerTz)}`
-      : `Your timezone: ${formatTz(viewerTz)} · created in ${formatTz(event.timezone)}`
-
   return (
-    <div className="min-h-screen px-6 py-10 max-w-7xl mx-auto">
-      {/* Top bar — no big title */}
+    <div className="min-h-screen px-6 py-8 max-w-7xl mx-auto">
+      {/* Header strip */}
       <motion.div
-        initial={{ opacity: 0, y: -8 }}
+        initial={{ opacity: 0, y: -6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="flex items-start justify-between mb-6 gap-4 flex-wrap"
+        className="flex items-start justify-between mb-5 gap-4 flex-wrap font-mono"
       >
-        <div>
-          <div className="text-xs uppercase tracking-wider text-text-faint">Event</div>
-          <div className="text-text text-base">{event.title || 'Untitled'}</div>
-          <div className="text-text-faint text-xs mt-1">{tzNote}</div>
+        <div className="text-sm">
+          <div className="text-text-dim opacity-60">// event</div>
+          <div className="text-text-bright">
+            &gt; {event.title || 'untitled'}
+            <span className="blink text-text-dim ml-1">_</span>
+          </div>
+          <div className="text-[11px] text-text-faint mt-1">
+            tz={formatTz(viewerTz)}
+            {viewerTz !== event.timezone && (
+              <span className="ml-2 opacity-80">(origin: {formatTz(event.timezone)})</span>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="text-xs text-text-faint mr-1">
-            {totalResponders} {totalResponders === 1 ? 'person' : 'people'}
+        <div className="flex items-center gap-3 text-sm">
+          <div className="text-[11px] text-text-faint">
+            peers: {totalResponders.toString().padStart(2, '0')}
           </div>
           <button
             onClick={copyLink}
-            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-bg-elevated border border-border hover:border-accent-500/50 transition"
+            className="border border-[#ffb000]/40 hover:border-[#ffb000] px-3 py-1.5 text-xs tracking-[0.15em] transition-colors"
           >
             <AnimatePresence mode="wait">
               {copied ? (
-                <motion.span key="c" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-accent-400 text-sm">
-                  Copied ✓
+                <motion.span key="c" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[#00ff7a]">
+                  [ COPIED! ]
                 </motion.span>
               ) : (
-                <motion.span key="l" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-sm text-text-dim group-hover:text-text">
-                  Copy share link
+                <motion.span key="l" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  [ COPY LINK ]
                 </motion.span>
               )}
             </AnimatePresence>
@@ -214,137 +213,151 @@ export function Event({ eventId }: { eventId: string }) {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="mb-6 bg-bg-elevated/50 backdrop-blur border border-border rounded-xl p-4 flex items-center gap-3"
+            className="mb-5"
           >
-            <span className="text-sm text-text-dim">Your name</span>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && commitName(name)}
-              placeholder="Enter your name to start"
-              autoFocus
-              className="flex-1 bg-bg border border-border rounded-lg px-3 py-2 text-text placeholder-text-faint focus:border-accent-500 focus:outline-none"
-            />
-            <button
-              onClick={() => commitName(name)}
-              disabled={!name.trim()}
-              className="px-4 py-2 rounded-lg bg-accent-500 hover:bg-accent-600 disabled:bg-bg disabled:text-text-faint text-white transition"
-            >
-              Join
-            </button>
+            <Frame title="LOGIN" variant="green">
+              <div className="p-3 flex items-center gap-2 text-sm">
+                <span className="text-[#00ff7a]">&gt;</span>
+                <span className="text-text-dim text-xs">USER:</span>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && commitName(name)}
+                  placeholder="your_name"
+                  autoFocus
+                  className="flex-1 bg-transparent text-text placeholder-text-faint focus:outline-none"
+                />
+                <button
+                  onClick={() => commitName(name)}
+                  disabled={!name.trim()}
+                  className="border border-[#00ff7a]/50 hover:border-[#00ff7a] hover:bg-[#00ff7a]/10 disabled:opacity-30 disabled:cursor-not-allowed text-[#00ff7a] px-3 py-1 text-xs tracking-[0.2em] transition-colors"
+                >
+                  [ CONNECT ]
+                </button>
+              </div>
+            </Frame>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Two-panel grid */}
+      {/* Two panels */}
       <div className="grid md:grid-cols-2 gap-6">
         <motion.div
-          initial={{ opacity: 0, x: -8 }}
+          initial={{ opacity: 0, x: -6 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3, delay: 0.05 }}
-          className="bg-bg-elevated/30 backdrop-blur border border-border rounded-2xl p-4"
         >
-          <div className="flex items-center justify-between mb-3 px-1">
-            <div>
-              <div className="text-xs uppercase tracking-wider text-text-faint">Your availability</div>
-              <div className="text-sm text-text-dim">
-                {committedName
-                  ? 'Drag to paint the times you\'re free'
-                  : 'Enter your name above to start'}
+          <Frame
+            title="YOU.MATRIX"
+            right={
+              <div className="text-[11px] text-text-faint">
+                [{selected.size.toString().padStart(3, '0')}] blocks
+              </div>
+            }
+          >
+            <div className="p-2">
+              <div className="text-[11px] text-text-dim mb-2 px-1">
+                {committedName ? (
+                  <>&gt; user={committedName} · drag to mark availability</>
+                ) : (
+                  <>&gt; awaiting login…</>
+                )}
+              </div>
+              <div
+                className={[
+                  'overflow-auto max-h-[65vh]',
+                  !committedName ? 'opacity-30 pointer-events-none' : '',
+                ].join(' ')}
+              >
+                <AvailabilityGrid
+                  grid={grid}
+                  mode="edit"
+                  selected={selected}
+                  onSelectedChange={setSelected}
+                />
               </div>
             </div>
-            <div className="text-xs text-text-faint">
-              {selected.size} {selected.size === 1 ? 'slot' : 'slots'}
-            </div>
-          </div>
-
-          <div
-            className={[
-              'overflow-auto max-h-[65vh] rounded-lg',
-              !committedName ? 'opacity-40 pointer-events-none' : '',
-            ].join(' ')}
-          >
-            <AvailabilityGrid
-              grid={grid}
-              mode="edit"
-              selected={selected}
-              onSelectedChange={setSelected}
-            />
-          </div>
+          </Frame>
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, x: 8 }}
+          initial={{ opacity: 0, x: 6 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
-          className="bg-bg-elevated/30 backdrop-blur border border-border rounded-2xl p-4"
         >
-          <div className="flex items-center justify-between mb-3 px-1">
-            <div>
-              <div className="text-xs uppercase tracking-wider text-text-faint">Group availability</div>
-              <div className="text-sm text-text-dim">
-                {hoverInfo
-                  ? `${hoverInfo.available.length}/${totalResponders} available`
-                  : totalResponders === 0
-                    ? 'Share the link to collect responses'
-                    : 'Hover to see who\'s free'}
+          <Frame
+            title="GROUP.OVERLAY"
+            variant="green"
+            right={<ResponderChips names={allNames} />}
+          >
+            <div className="p-2">
+              <div className="text-[11px] text-text-dim mb-2 px-1">
+                {hoverInfo ? (
+                  <>&gt; {hoverInfo.available.length}/{totalResponders} free</>
+                ) : totalResponders === 0 ? (
+                  <>&gt; no peers yet — share link to collect replies</>
+                ) : (
+                  <>&gt; hover grid to inspect</>
+                )}
               </div>
-            </div>
-            <ResponderChips names={allNames} />
-          </div>
 
-          <div className="overflow-auto max-h-[65vh] rounded-lg">
-            <AvailabilityGrid
-              grid={grid}
-              mode="view"
-              heat={heat}
-              totalResponders={totalResponders}
-              onHoverSlot={setHoverSlot}
-            />
-          </div>
+              <div className="overflow-auto max-h-[65vh]">
+                <AvailabilityGrid
+                  grid={grid}
+                  mode="view"
+                  heat={heat}
+                  totalResponders={totalResponders}
+                  onHoverSlot={setHoverSlot}
+                />
+              </div>
 
-          <AnimatePresence>
-            {hoverInfo && (
-              <motion.div
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 6 }}
-                className="mt-3 bg-bg border border-border rounded-lg p-3 text-sm"
-              >
-                <div className="flex gap-6">
-                  <div className="flex-1">
-                    <div className="text-xs text-text-faint mb-1">Available</div>
-                    {hoverInfo.available.length === 0 ? (
-                      <div className="text-text-faint">Nobody yet</div>
-                    ) : (
-                      <div className="flex flex-wrap gap-1.5">
-                        {hoverInfo.available.map((n) => (
-                          <span
-                            key={n}
-                            className="px-2 py-0.5 rounded-md bg-accent-500/20 border border-accent-500/30 text-accent-400 text-xs"
-                          >
-                            {n}
-                          </span>
-                        ))}
+              <AnimatePresence>
+                {hoverInfo && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 4 }}
+                    className="mt-3 border border-[#00ff7a]/30 p-3 text-xs font-mono"
+                  >
+                    <div className="flex gap-6">
+                      <div className="flex-1">
+                        <div className="text-text-dim mb-1 text-[10px] tracking-widest">AVAILABLE</div>
+                        {hoverInfo.available.length === 0 ? (
+                          <div className="text-text-faint">—</div>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {hoverInfo.available.map((n) => (
+                              <span
+                                key={n}
+                                className="px-1.5 py-0.5 border border-[#00ff7a]/40 text-[#00ff7a]"
+                              >
+                                {n}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  {hoverInfo.missing.length > 0 && (
-                    <div className="flex-1">
-                      <div className="text-xs text-text-faint mb-1">Unavailable</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {hoverInfo.missing.map((n) => (
-                          <span key={n} className="px-2 py-0.5 rounded-md bg-bg-hover border border-border text-text-faint text-xs">
-                            {n}
-                          </span>
-                        ))}
-                      </div>
+                      {hoverInfo.missing.length > 0 && (
+                        <div className="flex-1">
+                          <div className="text-text-dim mb-1 text-[10px] tracking-widest">MISSING</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {hoverInfo.missing.map((n) => (
+                              <span
+                                key={n}
+                                className="px-1.5 py-0.5 border border-[#443826] text-text-faint line-through decoration-[#443826]"
+                              >
+                                {n}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </Frame>
         </motion.div>
       </div>
     </div>
@@ -352,25 +365,21 @@ export function Event({ eventId }: { eventId: string }) {
 }
 
 function ResponderChips({ names }: { names: string[] }) {
-  if (names.length === 0) return null
+  if (names.length === 0) return <div className="text-[10px] text-text-faint">[ empty ]</div>
   const shown = names.slice(0, 4)
   const rest = names.length - shown.length
   return (
-    <div className="flex -space-x-1">
+    <div className="flex gap-1 text-[10px]">
       {shown.map((n) => (
-        <div
+        <span
           key={n}
           title={n}
-          className="w-7 h-7 rounded-full bg-gradient-to-br from-accent-400 to-accent-600 border-2 border-bg-elevated flex items-center justify-center text-[11px] font-medium text-white"
+          className="px-1 py-0.5 border border-[#00ff7a]/40 text-[#00ff7a] tracking-wider"
         >
-          {n.slice(0, 1).toUpperCase()}
-        </div>
+          {n.slice(0, 3).toUpperCase()}
+        </span>
       ))}
-      {rest > 0 && (
-        <div className="w-7 h-7 rounded-full bg-bg-hover border-2 border-bg-elevated flex items-center justify-center text-[10px] text-text-dim">
-          +{rest}
-        </div>
-      )}
+      {rest > 0 && <span className="px-1 py-0.5 border border-[#443826] text-text-faint">+{rest}</span>}
     </div>
   )
 }

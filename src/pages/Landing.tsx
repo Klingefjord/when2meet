@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { formatHour } from '../lib/slots'
 import { api } from '../lib/api'
 import { QUOTES } from '../lib/quotes'
+import { Frame } from '../components/Frame'
+import { BootIntro } from '../components/BootIntro'
 
 function startOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1)
@@ -18,7 +20,7 @@ function toISODate(d: Date) {
 function buildCalendar(monthAnchor: Date) {
   const first = startOfMonth(monthAnchor)
   const gridStart = new Date(first)
-  gridStart.setDate(gridStart.getDate() - first.getDay()) // back to Sunday
+  gridStart.setDate(gridStart.getDate() - first.getDay())
   const cells: Date[] = []
   for (let i = 0; i < 42; i++) {
     const d = new Date(gridStart)
@@ -38,11 +40,12 @@ export function Landing({ onCreated }: { onCreated: (id: string) => void }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Drag-select state for calendar
   const dragMode = useRef<'add' | 'remove' | null>(null)
 
   const cells = useMemo(() => buildCalendar(monthAnchor), [monthAnchor])
-  const monthLabel = monthAnchor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+  const monthLabel = monthAnchor
+    .toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+    .toUpperCase()
 
   const canSubmit = title.trim().length > 0 && selected.size > 0 && endHour > startHour
 
@@ -96,137 +99,178 @@ export function Landing({ onCreated }: { onCreated: (id: string) => void }) {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center px-6 py-16"
+      className="min-h-screen px-6 py-12 flex items-center justify-center"
       onMouseUp={endDrag}
       onMouseLeave={endDrag}
     >
+      <BootIntro />
+
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-4xl"
+        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        className="w-full max-w-5xl"
       >
-        <div className="grid md:grid-cols-[1fr_380px] gap-6">
-          {/* Calendar */}
-          <div className="bg-bg-elevated/50 backdrop-blur border border-border rounded-2xl p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <button
-                onClick={() => setMonthAnchor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
-                className="w-9 h-9 rounded-lg hover:bg-bg-hover transition flex items-center justify-center text-text-dim hover:text-text"
-                aria-label="Previous month"
-              >
-                ‹
-              </button>
-              <div className="font-medium">{monthLabel}</div>
-              <button
-                onClick={() => setMonthAnchor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
-                className="w-9 h-9 rounded-lg hover:bg-bg-hover transition flex items-center justify-center text-text-dim hover:text-text"
-                aria-label="Next month"
-              >
-                ›
-              </button>
-            </div>
-
-            <div className="grid grid-cols-7 gap-1 mb-2">
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-                <div key={i} className="text-center text-xs text-text-faint py-1">
-                  {d}
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-7 gap-1 no-select">
-              {cells.map((d) => {
-                const iso = toISODate(d)
-                const inMonth = d.getMonth() === monthAnchor.getMonth()
-                const isPast =
-                  d < new Date(today.getFullYear(), today.getMonth(), today.getDate())
-                const isSelected = selected.has(iso)
-                const disabled = isPast
-                return (
-                  <button
-                    key={iso}
-                    type="button"
-                    disabled={disabled}
-                    onMouseDown={() => onCellDown(d, disabled)}
-                    onMouseEnter={() => onCellEnter(d, disabled)}
-                    className={[
-                      'relative aspect-square rounded-lg text-sm transition-all',
-                      disabled
-                        ? 'text-text-faint/40 cursor-not-allowed'
-                        : inMonth
-                          ? 'text-text hover:bg-bg-hover'
-                          : 'text-text-faint hover:bg-bg-hover',
-                      isSelected
-                        ? 'bg-accent-500 text-white hover:bg-accent-500 shadow-[0_0_20px_var(--color-accent-glow)]'
-                        : '',
-                    ].join(' ')}
-                  >
-                    {d.getDate()}
-                  </button>
-                )
-              })}
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-border text-xs text-text-faint">
-              Drag to select multiple days · {selected.size} selected
-            </div>
+        {/* Top banner */}
+        <div className="mb-8 font-mono text-[13px]">
+          <div className="text-text-bright">
+            <span className="opacity-60">╔═</span> WHEN.EXE <span className="opacity-60">══ schedule sync v1.0 ══╗</span>
           </div>
+          <div className="text-text-dim mt-1">
+            <span className="opacity-60">║</span> enter dates &amp; time range, share the link, collect replies.
+            <span className="blink text-text ml-2">▊</span>
+          </div>
+          <div className="text-text-bright opacity-60 mt-1">
+            ╚════════════════════════════════════╝
+          </div>
+        </div>
 
-          {/* Form */}
-          <div className="bg-bg-elevated/50 backdrop-blur border border-border rounded-2xl p-6 flex flex-col gap-5">
-            <div>
-              <label className="text-xs text-text-dim mb-2 block uppercase tracking-wide">
-                Event name
-              </label>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Team sync, coffee w/ Alex…"
-                className="w-full bg-bg border border-border rounded-lg px-3 py-2.5 text-text placeholder-text-faint focus:border-accent-500 focus:outline-none transition"
-              />
-            </div>
+        <div className="grid md:grid-cols-[1fr_360px] gap-6">
+          {/* Calendar */}
+          <Frame
+            title="DATE.MATRIX"
+            right={
+              <div className="text-[11px] text-text-faint">
+                [{selected.size.toString().padStart(2, '0')}] SEL
+              </div>
+            }
+          >
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <button
+                  onClick={() =>
+                    setMonthAnchor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))
+                  }
+                  className="px-2 py-1 text-text-dim hover:text-text border border-transparent hover:border-[#ffb000]/30 transition-colors"
+                  aria-label="Previous month"
+                >
+                  &lt;&lt;
+                </button>
+                <div className="text-text-bright text-sm tracking-[0.3em]">{monthLabel}</div>
+                <button
+                  onClick={() =>
+                    setMonthAnchor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))
+                  }
+                  className="px-2 py-1 text-text-dim hover:text-text border border-transparent hover:border-[#ffb000]/30 transition-colors"
+                  aria-label="Next month"
+                >
+                  &gt;&gt;
+                </button>
+              </div>
 
-            <div>
-              <label className="text-xs text-text-dim mb-2 block uppercase tracking-wide">
-                Time range
-              </label>
-              <div className="flex items-center gap-2">
-                <select
-                  value={startHour}
-                  onChange={(e) => setStartHour(Number(e.target.value))}
-                  className="flex-1 bg-bg border border-border rounded-lg px-3 py-2.5 text-text focus:border-accent-500 focus:outline-none"
-                >
-                  {Array.from({ length: 24 }).map((_, h) => (
-                    <option key={h} value={h}>
-                      {formatHour(h)}
-                    </option>
-                  ))}
-                </select>
-                <span className="text-text-faint text-sm">to</span>
-                <select
-                  value={endHour}
-                  onChange={(e) => setEndHour(Number(e.target.value))}
-                  className="flex-1 bg-bg border border-border rounded-lg px-3 py-2.5 text-text focus:border-accent-500 focus:outline-none"
-                >
-                  {Array.from({ length: 24 }).map((_, h) => (
-                    <option key={h + 1} value={h + 1}>
-                      {formatHour((h + 1) % 24)}
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-7 mb-1">
+                {['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'].map((d, i) => (
+                  <div
+                    key={i}
+                    className="text-center text-[10px] text-text-faint py-1 tracking-widest"
+                  >
+                    {d}
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-7 no-select border-t border-l border-[#ffb000]/15">
+                {cells.map((d) => {
+                  const iso = toISODate(d)
+                  const inMonth = d.getMonth() === monthAnchor.getMonth()
+                  const isPast =
+                    d < new Date(today.getFullYear(), today.getMonth(), today.getDate())
+                  const isSelected = selected.has(iso)
+                  const disabled = isPast
+                  return (
+                    <button
+                      key={iso}
+                      type="button"
+                      disabled={disabled}
+                      onMouseDown={() => onCellDown(d, disabled)}
+                      onMouseEnter={() => onCellEnter(d, disabled)}
+                      className={[
+                        'relative aspect-square text-sm transition-colors border-r border-b border-[#ffb000]/15 font-mono',
+                        disabled
+                          ? 'text-text-faint/40 cursor-not-allowed'
+                          : inMonth
+                            ? 'text-text'
+                            : 'text-text-faint',
+                        isSelected
+                          ? 'bg-[#ffb000] text-[#0a0806] hover:bg-[#ffd166]'
+                          : disabled
+                            ? ''
+                            : 'hover:bg-[#ffb000]/10',
+                      ].join(' ')}
+                    >
+                      {String(d.getDate()).padStart(2, '0')}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="mt-3 text-[11px] text-text-faint">
+                &gt; drag to select range
               </div>
             </div>
+          </Frame>
+
+          {/* Config */}
+          <div className="flex flex-col gap-4">
+            <Frame title="CONFIG">
+              <div className="p-4 flex flex-col gap-4">
+                <div>
+                  <label className="text-[10px] text-text-dim mb-2 block tracking-[0.25em]">
+                    EVENT.NAME
+                  </label>
+                  <div className="flex items-center border border-[#ffb000]/30 bg-[#0a0806] focus-within:border-[#ffb000]">
+                    <span className="text-text-dim px-2 select-none">&gt;</span>
+                    <input
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="team_sync"
+                      className="w-full bg-transparent py-2 pr-3 text-text placeholder-text-faint focus:outline-none text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-text-dim mb-2 block tracking-[0.25em]">
+                    TIME.RANGE
+                  </label>
+                  <div className="flex items-center gap-2 text-sm">
+                    <select
+                      value={startHour}
+                      onChange={(e) => setStartHour(Number(e.target.value))}
+                      className="flex-1 bg-[#0a0806] border border-[#ffb000]/30 px-2 py-2 text-text focus:border-[#ffb000] focus:outline-none"
+                    >
+                      {Array.from({ length: 24 }).map((_, h) => (
+                        <option key={h} value={h} className="bg-[#0a0806]">
+                          {formatHour(h)}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-text-faint">→</span>
+                    <select
+                      value={endHour}
+                      onChange={(e) => setEndHour(Number(e.target.value))}
+                      className="flex-1 bg-[#0a0806] border border-[#ffb000]/30 px-2 py-2 text-text focus:border-[#ffb000] focus:outline-none"
+                    >
+                      {Array.from({ length: 24 }).map((_, h) => (
+                        <option key={h + 1} value={h + 1} className="bg-[#0a0806]">
+                          {formatHour((h + 1) % 24)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </Frame>
 
             <motion.button
               whileTap={{ scale: 0.98 }}
               disabled={!canSubmit || submitting}
               onClick={handleCreate}
               className={[
-                'mt-auto relative overflow-hidden rounded-lg py-3 font-medium transition',
+                'group relative py-3 px-4 border font-mono tracking-[0.2em] text-sm transition-colors',
                 canSubmit && !submitting
-                  ? 'bg-gradient-to-br from-accent-500 to-accent-600 text-white shadow-[0_8px_24px_-8px_var(--color-accent-glow)] hover:shadow-[0_12px_32px_-8px_var(--color-accent-glow)]'
-                  : 'bg-bg border border-border text-text-faint cursor-not-allowed',
+                  ? 'border-[#ffb000] text-[#ffb000] hover:bg-[#ffb000] hover:text-[#0a0806]'
+                  : 'border-[#443826] text-text-faint cursor-not-allowed',
               ].join(' ')}
             >
               <AnimatePresence mode="wait">
@@ -237,7 +281,7 @@ export function Landing({ onCreated }: { onCreated: (id: string) => void }) {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                   >
-                    Creating…
+                    [ TRANSMITTING<span className="blink">_</span> ]
                   </motion.span>
                 ) : (
                   <motion.span
@@ -246,13 +290,17 @@ export function Landing({ onCreated }: { onCreated: (id: string) => void }) {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                   >
-                    Create event →
+                    [ CREATE EVENT ]
                   </motion.span>
                 )}
               </AnimatePresence>
             </motion.button>
 
-            {error && <div className="text-sm text-red-400">{error}</div>}
+            {error && (
+              <div className="text-sm text-[#ff3b30] border border-[#ff3b30]/50 px-3 py-2">
+                ERR: {error}
+              </div>
+            )}
           </div>
         </div>
 
@@ -266,8 +314,7 @@ function RotatingQuote() {
   const [idx, setIdx] = useState(() => Math.floor(Math.random() * QUOTES.length))
 
   useEffect(() => {
-    const tick = () => setIdx((i) => (i + 1) % QUOTES.length)
-    const id = window.setInterval(tick, 7000)
+    const id = window.setInterval(() => setIdx((i) => (i + 1) % QUOTES.length), 8000)
     return () => window.clearInterval(id)
   }, [])
 
@@ -277,26 +324,27 @@ function RotatingQuote() {
     <motion.footer
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ delay: 0.4, duration: 0.6 }}
-      className="mt-16 text-center text-xs text-text-faint min-h-[70px]"
+      transition={{ delay: 0.5, duration: 0.6 }}
+      className="mt-16 text-[11px] text-text-faint min-h-[70px] font-mono"
     >
+      <div className="text-text-dim opacity-60 mb-2">// daily.stdout</div>
       <AnimatePresence mode="wait">
         <motion.div
           key={idx}
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.5 }}
         >
-          <p className="italic max-w-lg mx-auto leading-relaxed">
-            &ldquo;{q.text}&rdquo;
+          <p className="max-w-xl leading-relaxed">
+            <span className="text-text-dim mr-2">&gt;</span>
+            {q.text}
           </p>
-          <p className="mt-2 not-italic tracking-wide">
-            — {q.author}, <span className="italic">{q.source}</span>
+          <p className="mt-1 text-text-faint">
+            <span className="mr-2 opacity-50">  </span>— {q.author}, {q.source}
           </p>
         </motion.div>
       </AnimatePresence>
     </motion.footer>
   )
 }
-
