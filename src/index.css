@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #09090b;
+  --color-bg-elevated: #111114;
+  --color-bg-hover: #18181c;
+  --color-border: #27272a;
+  --color-border-strong: #3f3f46;
+  --color-text: #fafafa;
+  --color-text-dim: #a1a1aa;
+  --color-text-faint: #52525b;
+
+  --color-accent-50: #faf5ff;
+  --color-accent-400: #c084fc;
+  --color-accent-500: #a855f7;
+  --color-accent-600: #9333ea;
+  --color-accent-glow: rgba(168, 85, 247, 0.4);
+
+  --color-heat-0: #18181c;
+  --color-heat-1: #2a1b3d;
+  --color-heat-2: #4c1d95;
+  --color-heat-3: #6d28d9;
+  --color-heat-4: #8b5cf6;
+  --color-heat-5: #c084fc;
+
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Inter", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -20%, rgba(168, 85, 247, 0.15), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 100% 100%, rgba(236, 72, 153, 0.08), transparent 70%),
+    #09090b;
+  background-attachment: fixed;
+}
+
+::selection {
+  background: var(--color-accent-500);
+  color: white;
+}
+
+/* Hide scrollbars during drag */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Subtle shimmer for interactive loading */
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.04) 50%,
+    transparent 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+/* Focus rings — clean, glowy */
+:focus-visible {
+  outline: 2px solid var(--color-accent-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button {
+  font-family: inherit;
+}

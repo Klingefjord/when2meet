@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Event {
+  id        String   @id
+  title     String
+  // JSON array of ISO date strings (e.g. ["2026-04-22","2026-04-23"])
+  dates     Json
+  // Start/end hour (0-24, half-hour supported as floats later)
+  startHour Int      @default(9)
+  endHour   Int      @default(22)
+  timezone  String   @default("UTC")
+  createdAt DateTime @default(now())
+
+  responses Response[]
+}
+
+model Response {
+  id        String   @id @default(cuid())
+  eventId   String
+  name      String
+  // Array of ISO datetime slot keys the user marked available
+  slots     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, name])
+  @@index([eventId])
+}
