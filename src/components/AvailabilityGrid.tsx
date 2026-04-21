@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { LocalGrid } from '../lib/slots'
 
 type SlotIso = string
@@ -11,6 +11,14 @@ type Props = {
   heat?: Map<SlotIso, string[]>
   totalResponders?: number
   onHoverSlot?: (slot: SlotIso | null) => void
+  // Inclusive column range [startCol, startCol + visibleCount) — when set,
+  // only that slice of columns is rendered. Drag-paint still uses absolute
+  // column indices so lockstep pagination across two grids works.
+  columnWindow?: { start: number; count: number }
+  // Row height in px — defaults to 22 (desktop). Use 36+ on touch devices.
+  rowHeight?: number
+  // Label column width — defaults to 60px.
+  labelWidth?: number
 }
 
 export function AvailabilityGrid({
@@ -21,7 +29,18 @@ export function AvailabilityGrid({
   heat,
   totalResponders = 0,
   onHoverSlot,
+  columnWindow,
+  rowHeight = 22,
+  labelWidth = 60,
 }: Props) {
+  const visibleColumns = useMemo(() => {
+    if (!columnWindow) return grid.columns.map((c, i) => ({ col: c, absIdx: i }))
+    const end = Math.min(grid.columns.length, columnWindow.start + columnWindow.count)
+    return grid.columns.slice(columnWindow.start, end).map((c, i) => ({
+      col: c,
+      absIdx: columnWindow.start + i,
+    }))
+  }, [grid.columns, columnWindow])
   const gridRef = useRef<HTMLDivElement>(null)
 
   // Drag-paint state
@@ -119,12 +138,12 @@ export function AvailabilityGrid({
     }
   }, [])
 
-  const gridCols = `60px repeat(${grid.columns.length}, minmax(44px, 1fr))`
+  const gridCols = `${labelWidth}px repeat(${visibleColumns.length}, minmax(36px, 1fr))`
 
   return (
     <div
       ref={gridRef}
-      className="relative select-none no-select"
+      className="relative select-none no-select touch-none"
       onPointerMove={onPointerMove}
       onPointerLeave={() => onHoverSlot?.(null)}
     >
@@ -134,10 +153,10 @@ export function AvailabilityGrid({
         style={{ gridTemplateColumns: gridCols }}
       >
         <div />
-        {grid.columns.map((col) => (
-          <div key={col.key} className="text-center py-3 border-b border-border">
+        {visibleColumns.map(({ col }) => (
+          <div key={col.key} className="text-center py-2 border-b border-border">
             <div className="text-[10px] uppercase tracking-wider text-text-faint">{col.label.weekday}</div>
-            <div className="text-lg font-medium">{col.label.day}</div>
+            <div className="text-base sm:text-lg font-medium leading-tight">{col.label.day}</div>
             <div className="text-[10px] text-text-faint">{col.label.month}</div>
           </div>
         ))}
@@ -154,12 +173,12 @@ export function AvailabilityGrid({
                   'relative text-[11px] text-text-faint pr-2 text-right',
                   isHourRow ? 'pt-[2px]' : '',
                 ].join(' ')}
-                style={{ height: 22, lineHeight: '22px' }}
+                style={{ height: rowHeight, lineHeight: `${rowHeight}px` }}
               >
                 {r.label ?? ''}
               </div>
 
-              {grid.columns.map((col, cIdx) => {
+              {visibleColumns.map(({ col, absIdx }) => {
                 const iso = grid.cell.get(`${col.key}|${rIdx}`)
                 const exists = !!iso
                 const isSelected = iso ? selected?.has(iso) ?? false : false
@@ -168,7 +187,6 @@ export function AvailabilityGrid({
                 const intensity = totalResponders > 0 ? count / totalResponders : 0
 
                 if (!exists) {
-                  // Gap cell (e.g. when viewer's tz shifts this window's shape)
                   return (
                     <div
                       key={`${col.key}-${rIdx}`}
@@ -176,7 +194,7 @@ export function AvailabilityGrid({
                         'border-l border-border bg-black/30',
                         isHourRow ? 'border-t border-border' : 'border-t border-border/40',
                       ].join(' ')}
-                      style={{ height: 22 }}
+                      style={{ height: rowHeight }}
                     />
                   )
                 }
@@ -186,17 +204,17 @@ export function AvailabilityGrid({
                     key={iso}
                     type="button"
                     data-cell
-                    data-col={cIdx}
+                    data-col={absIdx}
                     data-row={rIdx}
                     data-iso={iso}
-                    onPointerDown={(e) => onPointerDown(e, cIdx, rIdx, iso!)}
+                    onPointerDown={(e) => onPointerDown(e, absIdx, rIdx, iso!)}
                     onMouseEnter={() => onHoverSlot?.(iso!)}
                     className={[
                       'relative border-l border-border',
                       isHourRow ? 'border-t border-border' : 'border-t border-border/40',
                       mode === 'edit' ? 'cursor-pointer' : 'cursor-default',
                     ].join(' ')}
-                    style={{ height: 22 }}
+                    style={{ height: rowHeight }}
                   >
                     {mode === 'view' && count > 0 && (
                       <div

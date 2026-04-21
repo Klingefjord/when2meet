@@ -99,7 +99,7 @@ export function Landing({ onCreated }: { onCreated: (id: string) => void }) {
 
   return (
     <div
-      className="min-h-screen px-6 py-12 flex items-center justify-center"
+      className="min-h-screen px-4 sm:px-6 py-8 sm:py-12 flex items-start sm:items-center justify-center"
       onMouseUp={endDrag}
       onMouseLeave={endDrag}
     >
@@ -112,20 +112,25 @@ export function Landing({ onCreated }: { onCreated: (id: string) => void }) {
         className="w-full max-w-5xl"
       >
         {/* Top banner */}
-        <div className="mb-8 font-mono text-[13px]">
-          <div className="text-text-bright">
-            <span className="opacity-60">╔═</span> WHEN.EXE <span className="opacity-60">══ schedule sync v1.0 ══╗</span>
+        <div className="mb-6 sm:mb-8 font-mono text-[12px] sm:text-[13px]">
+          <div className="text-text-bright whitespace-nowrap overflow-hidden">
+            <span className="opacity-60">╔═</span> WHEN.EXE{' '}
+            <span className="opacity-60 hidden sm:inline">══ schedule sync v1.0 ══╗</span>
+            <span className="opacity-60 sm:hidden">══╗</span>
           </div>
           <div className="text-text-dim mt-1">
-            <span className="opacity-60">║</span> enter dates &amp; time range, share the link, collect replies.
+            <span className="opacity-60">║</span>{' '}
+            <span className="hidden sm:inline">enter dates &amp; time range, share the link, collect replies.</span>
+            <span className="sm:hidden">pick dates · share link · collect replies.</span>
             <span className="blink text-text ml-2">▊</span>
           </div>
-          <div className="text-text-bright opacity-60 mt-1">
-            ╚════════════════════════════════════╝
+          <div className="text-text-bright opacity-60 mt-1 whitespace-nowrap overflow-hidden">
+            <span className="hidden sm:inline">╚════════════════════════════════════╝</span>
+            <span className="sm:hidden">╚══════════════════╝</span>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-[1fr_360px] gap-6">
+        <div className="grid md:grid-cols-[1fr_360px] gap-4 md:gap-6">
           {/* Calendar */}
           <Frame
             title="DATE.MATRIX"

@@ -27,6 +27,20 @@ function formatTz(tz: string): string {
   }
 }
 
+// Track whether viewport is narrow enough that we need pagination.
+function useIsMobile(): boolean {
+  const [m, setM] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 640px)').matches : false,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)')
+    const fn = (e: MediaQueryListEvent) => setM(e.matches)
+    mq.addEventListener('change', fn)
+    return () => mq.removeEventListener('change', fn)
+  }, [])
+  return m
+}
+
 export function Event({ eventId }: { eventId: string }) {
   const [event, setEvent] = useState<EventType | null>(null)
   const [loading, setLoading] = useState(true)
@@ -37,7 +51,9 @@ export function Event({ eventId }: { eventId: string }) {
   const [selected, setSelected] = useState<Set<SlotIso>>(new Set())
   const [hoverSlot, setHoverSlot] = useState<SlotIso | null>(null)
   const [copied, setCopied] = useState(false)
+  const [pageStart, setPageStart] = useState(0)
 
+  const isMobile = useIsMobile()
   const viewerTz = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
 
   useEffect(() => {
@@ -132,6 +148,21 @@ export function Event({ eventId }: { eventId: string }) {
   const totalResponders = event?.responses.length ?? 0
   const allNames = useMemo(() => (event?.responses ?? []).map((r) => r.name), [event])
 
+  // Mobile: show 3 dates per page. Desktop: show all.
+  const pageSize = 3
+  const totalColumns = grid?.columns.length ?? 0
+  const usePagination = isMobile && totalColumns > pageSize
+  const columnWindow = usePagination
+    ? { start: pageStart, count: pageSize }
+    : undefined
+  const pageCount = usePagination ? Math.ceil(totalColumns / pageSize) : 1
+  const pageIdx = usePagination ? Math.floor(pageStart / pageSize) : 0
+
+  // Clamp pagination when totalColumns changes
+  useEffect(() => {
+    if (usePagination && pageStart >= totalColumns) setPageStart(0)
+  }, [usePagination, pageStart, totalColumns])
+
   const hoverInfo = useMemo(() => {
     if (!hoverSlot) return null
     const available = heat.get(hoverSlot) ?? []
@@ -156,35 +187,41 @@ export function Event({ eventId }: { eventId: string }) {
     )
   if (error || !event || !grid)
     return (
-      <div className="min-h-screen flex items-center justify-center font-mono">
+      <div className="min-h-screen flex items-center justify-center font-mono p-4">
         <div className="text-[#ff3b30]">ERR: {error ?? 'event not found'}</div>
       </div>
     )
 
+  // Row height: bigger on mobile so drag-paint is comfortable with a finger.
+  const rowHeight = isMobile ? 32 : 22
+  const labelWidth = isMobile ? 48 : 60
+
   return (
-    <div className="min-h-screen px-6 py-8 max-w-7xl mx-auto">
+    <div className="min-h-screen px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto">
       {/* Header strip */}
       <motion.div
         initial={{ opacity: 0, y: -6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="flex items-start justify-between mb-5 gap-4 flex-wrap font-mono"
+        className="flex items-start justify-between mb-5 gap-3 flex-wrap font-mono"
       >
-        <div className="text-sm">
-          <div className="text-text-dim opacity-60">// event</div>
-          <div className="text-text-bright">
+        <div className="text-sm min-w-0 flex-1">
+          <div className="text-text-dim opacity-60 text-[11px]">// event</div>
+          <div className="text-text-bright truncate">
             &gt; {event.title || 'untitled'}
             <span className="blink text-text-dim ml-1">_</span>
           </div>
-          <div className="text-[11px] text-text-faint mt-1">
+          <div className="text-[10px] sm:text-[11px] text-text-faint mt-1">
             tz={formatTz(viewerTz)}
             {viewerTz !== event.timezone && (
-              <span className="ml-2 opacity-80">(origin: {formatTz(event.timezone)})</span>
+              <span className="ml-2 opacity-80 block sm:inline">
+                (origin: {formatTz(event.timezone)})
+              </span>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <div className="text-[11px] text-text-faint">
+        <div className="flex items-center gap-2 text-sm shrink-0">
+          <div className="text-[11px] text-text-faint hidden sm:block">
             peers: {totalResponders.toString().padStart(2, '0')}
           </div>
           <button
@@ -216,7 +253,7 @@ export function Event({ eventId }: { eventId: string }) {
             className="mb-5"
           >
             <Frame title="LOGIN" variant="green">
-              <div className="p-3 flex items-center gap-2 text-sm">
+              <div className="p-3 flex flex-wrap items-center gap-2 text-sm">
                 <span className="text-[#00ff7a]">&gt;</span>
                 <span className="text-text-dim text-xs">USER:</span>
                 <input
@@ -225,7 +262,7 @@ export function Event({ eventId }: { eventId: string }) {
                   onKeyDown={(e) => e.key === 'Enter' && commitName(name)}
                   placeholder="your_name"
                   autoFocus
-                  className="flex-1 bg-transparent text-text placeholder-text-faint focus:outline-none"
+                  className="flex-1 min-w-0 bg-transparent text-text placeholder-text-faint focus:outline-none"
                 />
                 <button
                   onClick={() => commitName(name)}
@@ -240,8 +277,32 @@ export function Event({ eventId }: { eventId: string }) {
         )}
       </AnimatePresence>
 
-      {/* Two panels */}
-      <div className="grid md:grid-cols-2 gap-6">
+      {/* Pagination bar — only when needed (mobile w/ many dates) */}
+      {usePagination && (
+        <div className="mb-3 flex items-center justify-between text-[11px] text-text-dim font-mono">
+          <button
+            disabled={pageStart === 0}
+            onClick={() => setPageStart((s) => Math.max(0, s - pageSize))}
+            className="border border-[#ffb000]/30 hover:border-[#ffb000] disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1"
+          >
+            &lt;&lt;
+          </button>
+          <div className="text-text-faint">
+            dates {pageStart + 1}-{Math.min(totalColumns, pageStart + pageSize)} / {totalColumns}
+            <span className="ml-2 opacity-60">[p{pageIdx + 1}/{pageCount}]</span>
+          </div>
+          <button
+            disabled={pageStart + pageSize >= totalColumns}
+            onClick={() => setPageStart((s) => Math.min(totalColumns - 1, s + pageSize))}
+            className="border border-[#ffb000]/30 hover:border-[#ffb000] disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1"
+          >
+            &gt;&gt;
+          </button>
+        </div>
+      )}
+
+      {/* Two panels — side by side on desktop, stacked on mobile */}
+      <div className="grid md:grid-cols-2 gap-4 md:gap-6">
         <motion.div
           initial={{ opacity: 0, x: -6 }}
           animate={{ opacity: 1, x: 0 }}
@@ -251,21 +312,21 @@ export function Event({ eventId }: { eventId: string }) {
             title="YOUR.AVAILABILITY"
             right={
               <div className="text-[11px] text-text-faint">
-                [{selected.size.toString().padStart(3, '0')}] blocks
+                [{selected.size.toString().padStart(3, '0')}]
               </div>
             }
           >
             <div className="p-2">
               <div className="text-[11px] text-text-dim mb-2 px-1">
                 {committedName ? (
-                  <>&gt; user={committedName} · drag to mark availability</>
+                  <>&gt; {committedName} · drag to mark free</>
                 ) : (
                   <>&gt; awaiting login…</>
                 )}
               </div>
               <div
                 className={[
-                  'overflow-auto max-h-[65vh] min-h-[340px]',
+                  'overflow-hidden',
                   !committedName ? 'opacity-30 pointer-events-none' : '',
                 ].join(' ')}
               >
@@ -274,6 +335,9 @@ export function Event({ eventId }: { eventId: string }) {
                   mode="edit"
                   selected={selected}
                   onSelectedChange={setSelected}
+                  columnWindow={columnWindow}
+                  rowHeight={rowHeight}
+                  labelWidth={labelWidth}
                 />
               </div>
             </div>
@@ -295,19 +359,22 @@ export function Event({ eventId }: { eventId: string }) {
                 {hoverInfo ? (
                   <>&gt; {hoverInfo.available.length}/{totalResponders} free</>
                 ) : totalResponders === 0 ? (
-                  <>&gt; no peers yet — share link to collect replies</>
+                  <>&gt; no peers — share link</>
                 ) : (
-                  <>&gt; hover grid to inspect</>
+                  <>&gt; hover to inspect</>
                 )}
               </div>
 
-              <div className="overflow-auto max-h-[65vh] min-h-[340px]">
+              <div className="overflow-hidden">
                 <AvailabilityGrid
                   grid={grid}
                   mode="view"
                   heat={heat}
                   totalResponders={totalResponders}
                   onHoverSlot={setHoverSlot}
+                  columnWindow={columnWindow}
+                  rowHeight={rowHeight}
+                  labelWidth={labelWidth}
                 />
               </div>
 
@@ -319,8 +386,8 @@ export function Event({ eventId }: { eventId: string }) {
                     exit={{ opacity: 0, y: 4 }}
                     className="mt-3 border border-[#00ff7a]/30 p-3 text-xs font-mono"
                   >
-                    <div className="flex gap-6">
-                      <div className="flex-1">
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-6">
+                      <div className="flex-1 min-w-0">
                         <div className="text-text-dim mb-1 text-[10px] tracking-widest">AVAILABLE</div>
                         {hoverInfo.available.length === 0 ? (
                           <div className="text-text-faint">—</div>
@@ -338,7 +405,7 @@ export function Event({ eventId }: { eventId: string }) {
                         )}
                       </div>
                       {hoverInfo.missing.length > 0 && (
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <div className="text-text-dim mb-1 text-[10px] tracking-widest">MISSING</div>
                           <div className="flex flex-wrap gap-1.5">
                             {hoverInfo.missing.map((n) => (
@@ -366,7 +433,7 @@ export function Event({ eventId }: { eventId: string }) {
 
 function ResponderChips({ names }: { names: string[] }) {
   if (names.length === 0) return <div className="text-[10px] text-text-faint">[ empty ]</div>
-  const shown = names.slice(0, 4)
+  const shown = names.slice(0, 3)
   const rest = names.length - shown.length
   return (
     <div className="flex gap-1 text-[10px]">
