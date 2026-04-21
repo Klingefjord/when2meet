@@ -1,4 +1,4 @@
-# when2meet-cool
+# when2meet-cool hey
 
 A faster, prettier when2meet. Dark-mode first, drag-to-paint grid, live heatmap.
 
